@@ -1,22 +1,10 @@
-#---------------------------------------------------------------------------------
-# Clear the implicit built in rules
-#---------------------------------------------------------------------------------
-.SUFFIXES:
-#---------------------------------------------------------------------------------
-ifeq ($(strip $(DEVKITPPC)),)
-$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC)
-endif
-
-include $(DEVKITPPC)/gamecube_rules
-
-PROG = ../../../build_cube/liblzma.a
-BDIR = ../../../build_cube
-CFLAGS = -c -O2 -D_LZMA_IN_CB=1 -D_SZ_ONE_DIRECTORY  $(MACHDEP) -I./include -I$(DEVKITPRO)/libogc/include -DGEKKO -mcpu=750 -meabi -mhard-float \
-	 -D_SZ_NO_INT_64=0
+PROG = ../../build/liblzma.a
+BDIR = ../../build
 CXX = @powerpc-gekko-gcc
 LIB = -lm -static
 RM = @rm -f
-
+CFLAGS = -c -O2 -D_LZMA_IN_CB=1 -D_SZ_ONE_DIRECTORY -I./include  -DGEKKO -mcpu=750 -meabi -mhard-float \
+	 -D_SZ_NO_INT_64=0
 
 AR = @powerpc-gekko-ar
 

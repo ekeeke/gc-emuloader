@@ -5,7 +5,7 @@
 
 #ifndef _7ZIP_BYTE_DEFINED
 #define _7ZIP_BYTE_DEFINED
-#include <zconf.h>
+typedef unsigned char Byte;
 #endif 
 
 #ifndef _7ZIP_UINT16_DEFINED

@@ -3,7 +3,6 @@
 *
 * Module to provide in-memory decompression.
 ****************************************************************************/
-#ifndef HW_RVL
 #include <gccore.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,4 +52,3 @@ SZ_RESULT SzFileSeekImp(void *object, CFileSize pos)
 
     return SZE_FAIL;
 }
-#endif

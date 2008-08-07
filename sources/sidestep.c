@@ -6,7 +6,6 @@
 *
 * softdev March 2007
 ***************************************************************************/
-#ifndef HW_RVL
 #include <gccore.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +24,8 @@ static DOLHEADER *dolhdr;
 static u32 minaddress = 0;
 static u32 maxaddress = 0;
 
-typedef int (*BOOTSTUB) (u32 entrypoint, u32 dst, u32 src, int len, u32 invlen, u32 invaddress);
+typedef int (*BOOTSTUB) (u32 entrypoint, u32 dst, u32 src, int len,
+			 u32 invlen, u32 invaddress);
 
 /*--- Auxilliary RAM Support ----------------------------------------------*/
 /****************************************************************************
@@ -129,27 +129,35 @@ static void ARAMStub(void)
 ****************************************************************************/
 void ARAMRun(u32 entrypoint, u32 dst, u32 src, u32 len)
 {
-  char *p;
-  char *s = (char *) ARAMStub;
-  BOOTSTUB stub;
+	/*** Copy ARAMStub to 81300000 ***/
+    char *p;
+    char *s;
+    BOOTSTUB stub;
 
-  /*** Shutdown libOGC ***/
-  SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+	/*** Shutdown libOGC ***/
+    SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
 
-  /*** Copy ARAMStub to 81300000 ***/
-  if (dst + len < 0x81300000) p = (void *) 0x81300000;
-  else p = (void *) 0x80003100;
-  memcpy(p, s, 256); /*** Way too much - but who cares ***/
+    s = (char *) ARAMStub;
 
-  /*** Round length to 32 bytes ***/
-  if (len & 0x1f) len = (len & ~0x1f) + 0x20;
- 
-  /*** Flush everything! ***/
-  DCFlushRange((void *) 0x80000000, 0x1800000);
+    if (dst + len < 0x81300000)
+	p = (void *) 0x81300000;
+    else
+	p = (void *) 0x80003100;
 
-  /*** Boot the bugger :D ***/
-  stub = (BOOTSTUB) p;
-  stub((u32) entrypoint, dst, src, len | 0x80000000, len >> 5, dst);
+    memcpy(p, s, 256);		/*** Way too much - but who cares ***/
+
+	/*** Round length to 32 bytes ***/
+    if (len & 0x1f)
+	len = (len & ~0x1f) + 0x20;
+
+    stub = (BOOTSTUB) p;
+
+	/*** Flush everything! ***/
+    DCFlushRange((void *) 0x80000000, 0x1800000);
+
+	/*** Boot the bugger :D ***/
+    stub((u32) entrypoint, dst, src, len | 0x80000000, len >> 5, dst);
+
 }
 
 /****************************************************************************
@@ -159,19 +167,19 @@ void ARAMRun(u32 entrypoint, u32 dst, u32 src, u32 len)
 ****************************************************************************/
 static void ARAMClear(void)
 {
-  int i;
-  char *buffer = memalign(32, 2048); /*** A little 2k buffer ***/
+    int i;
+    char *buffer;
 
-  memset(buffer, 0, 2048);
-  DCFlushRange(buffer, 2048);
+    buffer = memalign(32, 2048);	 /*** A little 2k buffer ***/
+    memset(buffer, 0, 2048);
+    DCFlushRange(buffer, 2048);
 
-  for (i = ARAMSTART; i < 0x1000000; i += 2048)
-  {
-    ARAMPut(buffer, (char *) i, 2048);
-    while (AR_GetDMAStatus());
-  }
+    for (i = ARAMSTART; i < 0x1000000; i += 2048) {
+	ARAMPut(buffer, (char *) i, 2048);
+	while (AR_GetDMAStatus());
+    }
 
-  free(buffer);
+    free(buffer);
 }
 
 /*--- DOL Decoding functions -----------------------------------------------*/
@@ -182,45 +190,41 @@ static void ARAMClear(void)
 ****************************************************************************/
 static void DOLMinMax(DOLHEADER * dol)
 {
-  int i;
+    int i;
 
-  maxaddress = 0;
-  minaddress = 0x87100000;
+    maxaddress = 0;
+    minaddress = 0x87100000;
 
-  /*** Go through DOL sections ***/
-  /*** Text sections ***/
-  for (i = 0; i < MAXTEXTSECTION; i++)
-  {
-    if (dol->textAddress[i] && dol->textLength[i])
-    {
-      if (dol->textAddress[i] < minaddress)
-        minaddress = dol->textAddress[i];
-      if ((dol->textAddress[i] + dol->textLength[i]) > maxaddress) 
-        maxaddress = dol->textAddress[i] + dol->textLength[i];
+	/*** Go through DOL sections ***/
+    for (i = 0; i < MAXTEXTSECTION; i++) {
+	if (dol->textAddress[i] && dol->textLength[i]) {
+	    if (dol->textAddress[i] < minaddress)
+		minaddress = dol->textAddress[i];
+
+	    if ((dol->textAddress[i] + dol->textLength[i]) > maxaddress)
+		maxaddress = dol->textAddress[i] + dol->textLength[i];
+	}
     }
-  }
 
-  /*** Data sections ***/
-  for (i = 0; i < MAXDATASECTION; i++)
-  {
-    if (dol->dataAddress[i] && dol->dataLength[i])
-    {
-      if (dol->dataAddress[i] < minaddress)
-        minaddress = dol->dataAddress[i];
-      if ((dol->dataAddress[i] + dol->dataLength[i]) > maxaddress)
-        maxaddress = dol->dataAddress[i] + dol->dataLength[i];
+	/*** Data sections ***/
+    for (i = 0; i < MAXDATASECTION; i++) {
+	if (dol->dataAddress[i] && dol->dataLength[i]) {
+	    if (dol->dataAddress[i] < minaddress)
+		minaddress = dol->dataAddress[i];
+
+	    if ((dol->dataAddress[i] + dol->dataLength[i]) > maxaddress)
+		maxaddress = dol->dataAddress[i] + dol->dataLength[i];
+	}
     }
-  }
 
-  /*** And of course, any BSS section ***/
-  if (dol->bssAddress)
-  {
-    if ((dol->bssAddress + dol->bssLength) > maxaddress)
-      maxaddress = dol->bssAddress + dol->bssLength;
-  }
+	/*** And of course, any BSS section ***/
+    if (dol->bssAddress) {
+	if ((dol->bssAddress + dol->bssLength) > maxaddress)
+	    maxaddress = dol->bssAddress + dol->bssLength;
+    }
 
-  /*** Some OLD dols, Xrick in particular, require ~128k clear memory ***/
-  maxaddress += 0x20000;
+	/*** Some OLD dols, Xrick in particular, require ~128k clear memory ***/
+    maxaddress += 0x20000;
 }
 
 /****************************************************************************
@@ -232,50 +236,46 @@ static void DOLMinMax(DOLHEADER * dol)
 ****************************************************************************/
 int DOLtoARAM(char *dol)
 {
-  u32 sizeinbytes;
-  int i;
+    u32 sizeinbytes;
+    int i;
 
-  /*** Make sure ARAM subsystem is alive! ***/
-  AR_Init(NULL, 0); /*** No stack - we need it all ***/
-  ARAMClear();
+	/*** Make sure ARAM subsystem is alive! ***/
+    AR_Init(NULL, 0);		/*** No stack - we need it all ***/
+    ARAMClear();
 
-  /*** Get DOL header ***/
-  dolhdr = (DOLHEADER *) dol;
+	/*** Get DOL header ***/
+    dolhdr = (DOLHEADER *) dol;
 
-  /*** First, does this look like a DOL? ***/
-  if (dolhdr->textOffset[0] != DOLHDRLENGTH)
-    return 0;
+	/*** First, does this look like a DOL? ***/
+    if (dolhdr->textOffset[0] != DOLHDRLENGTH)
+	return 0;
 
-  /*** Get DOL stats ***/
-  DOLMinMax(dolhdr);
-  sizeinbytes = maxaddress - minaddress;
+	/*** Get DOL stats ***/
+    DOLMinMax(dolhdr);
+    sizeinbytes = maxaddress - minaddress;
 
-  /*** Move all DOL sections into ARAM ***/
-  /*** Move text sections ***/
-  for (i = 0; i < MAXTEXTSECTION; i++)
-  {
-    /*** This may seem strange, but in developing d0lLZ we found some with section addresses with zero length ***/
-    if (dolhdr->textAddress[i] && dolhdr->textLength[i])
-    {
-      ARAMPut(dol + dolhdr->textOffset[i], (char *) ((dolhdr->textAddress[i] - minaddress) + ARAMSTART),
-              dolhdr->textLength[i]);
+	/*** Move text sections ***/
+    for (i = 0; i < MAXTEXTSECTION; i++) {
+		/*** This may seem strange, but in developing d0lLZ we found some with section addresses with zero length ***/
+	if (dolhdr->textAddress[i] && dolhdr->textLength[i]) {
+	    ARAMPut(dol + dolhdr->textOffset[i], (char *)
+		    ((dolhdr->textAddress[i] - minaddress) + ARAMSTART),
+		    dolhdr->textLength[i]);
+	}
     }
-  }
 
-  /*** Move data sections ***/
-  for (i = 0; i < MAXDATASECTION; i++)
-  {
-    if (dolhdr->dataAddress[i] && dolhdr->dataLength[i])
-    {
-      ARAMPut(dol + dolhdr->dataOffset[i], (char *) ((dolhdr->dataAddress[i] - minaddress) + ARAMSTART),
-              dolhdr->dataLength[i]);
+	/*** Move data sections ***/
+    for (i = 0; i < MAXDATASECTION; i++) {
+	if (dolhdr->dataAddress[i] && dolhdr->dataLength[i]) {
+	    ARAMPut(dol + dolhdr->dataOffset[i], (char *)
+		    ((dolhdr->dataAddress[i] - minaddress) + ARAMSTART),
+		    dolhdr->dataLength[i]);
+	}
     }
-  }
 
-  /*** Now go run it ***/
-  ARAMRun(dolhdr->entryPoint, minaddress, ARAMSTART, sizeinbytes);
+	/*** Now go run it ***/
+    ARAMRun(dolhdr->entryPoint, minaddress, ARAMSTART, sizeinbytes);
 
-  /*** Will never return ***/
-  return 1;
+	/*** Will never return ***/
+    return 1;
 }
-#endif

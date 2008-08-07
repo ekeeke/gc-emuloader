@@ -1,7 +1,6 @@
 /*****************************************************************************
 * Memory File Support Functions
 *****************************************************************************/
-#ifndef HW_RVL
 #include <gccore.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,4 +85,3 @@ void mem_fclose(MEMFILE * File)
     if (File != NULL)
 	free(File);
 }
-#endif
