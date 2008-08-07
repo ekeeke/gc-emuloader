@@ -26,6 +26,74 @@
 #include <string.h>
 
 #ifdef HW_RVL
+#define USB_ALIGN	__attribute__((aligned(32)))
+char bluetoothResetData1[] USB_ALIGN = {
+	/* bmRequestType */
+	0x20
+};
+
+char bluetoothResetData2[] USB_ALIGN = {
+	/* bmRequest */
+	0x00
+};
+
+char bluetoothResetData3[] USB_ALIGN = {
+	/* wValue */
+	0x00, 0x00
+};
+
+char bluetoothResetData4[] USB_ALIGN = {
+	/* wIndex */
+	0x00, 0x00
+};
+
+char bluetoothResetData5[] USB_ALIGN = {
+	/* wLength */
+	0x03, 0x00
+};
+
+char bluetoothResetData6[] USB_ALIGN = {
+	/* unknown; set to zero. */
+	0x00
+};
+
+char bluetoothResetData7[] USB_ALIGN = {
+	/* Mesage payload. */
+	0x03, 0x0c, 0x00
+};
+
+/** Vectors of data transfered. */
+ioctlv bluetoothReset[] USB_ALIGN = {
+	{
+		bluetoothResetData1,
+		sizeof(bluetoothResetData1)
+	},
+	{
+		bluetoothResetData2,
+		sizeof(bluetoothResetData2)
+	},
+	{
+		bluetoothResetData3,
+		sizeof(bluetoothResetData3)
+	},
+	{
+		bluetoothResetData4,
+		sizeof(bluetoothResetData4)
+	},
+	{
+		bluetoothResetData5,
+		sizeof(bluetoothResetData5)
+	},
+	{
+		bluetoothResetData6,
+		sizeof(bluetoothResetData6)
+	},
+	{
+		bluetoothResetData7,
+		sizeof(bluetoothResetData7)
+	}
+};
+
 static s32 sd_fd = -1;
 
 static u32 status __attribute__((aligned(32)));
@@ -200,6 +268,19 @@ s32 sd_init()
 {
 #ifdef HW_RVL
 	s32 r;
+	s32 usb_fd = -1;
+
+	// shutdown wiimote
+	//printf("Open Bluetooth Dongle\n");
+	usb_fd = IOS_Open("/dev/usb/oh1/57e/305", 2 /* 2 = write, 1 = read */);
+	//printf("fd = %d\n", usb_fd);
+
+	//printf("Closing connection to blutooth\n");
+	int res = IOS_Ioctlv(usb_fd, 0, 6, 1, bluetoothReset);
+	//printf("ret = %d\n", res);
+
+	IOS_Close(usb_fd);
+
 	if(sd_fd > 0)
 	{
 //		printf("sd_init() called more than once. using old sd_fd: %d\n", sd_fd);

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DOLADDRESS 0x80180000
+#define DOLADDRESS 0x80296460
 
 #define MAXTEXTSECTION 7
 #define MAXDATASECTION 11

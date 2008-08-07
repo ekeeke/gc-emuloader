@@ -9,57 +9,116 @@ endif
 
 include $(DEVKITPPC)/gamecube_rules
 
-PROG = ../../../build_cube/liblzma.a
-BDIR = ../../../build_cube
-CFLAGS = -c -O2 -D_LZMA_IN_CB=1 -D_SZ_ONE_DIRECTORY  $(MACHDEP) -I./include -I$(DEVKITPRO)/libogc/include -DGEKKO -mcpu=750 -meabi -mhard-float \
-	 -D_SZ_NO_INT_64=0
-CXX = @powerpc-gekko-gcc
-LIB = -lm -static
-RM = @rm -f
+#---------------------------------------------------------------------------------
+# TARGET is the name of the output
+# BUILD is the directory where object files & intermediate files will be placed
+# SOURCES is a list of directories containing source code
+# INCLUDES is a list of directories containing extra header files
+#---------------------------------------------------------------------------------
+TARGET		:=	emuloader_cube
+BUILD		:=	build_cube
+SOURCES		:=	source source/lzma/include
+INCLUDES	:=	source source/lzma/include
 
+#---------------------------------------------------------------------------------
+# options for code generation
+#---------------------------------------------------------------------------------
 
-AR = @powerpc-gekko-ar
+CFLAGS	= -g -O2 -Wall $(MACHDEP) $(INCLUDE) -DWORDS_BIGENDIAN -D_LZMA_IN_CB=1 -D_SZ_ONE_DIRECTORY=1 -D_SZ_NO_INT_64=0 -DNGC="1" -DHW_DOL
+CXXFLAGS	=	$(CFLAGS)
 
-OBJS = $(BDIR)/7zAlloc.o $(BDIR)/7zBuffer.o $(BDIR)/7zCrc.o $(BDIR)/7zDecode.o \
-       $(BDIR)/7zExtract.o $(BDIR)/7zHeader.o $(BDIR)/7zIn.o $(BDIR)/7zItem.o \
-       $(BDIR)/7zMethodID.o $(BDIR)/LzmaDecode.o 
+LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
 
-all: $(PROG)
+#---------------------------------------------------------------------------------
+# any extra libraries we wish to link with the project
+#---------------------------------------------------------------------------------
+LIBS	:=	-logc -lm -lz  -L./ -llzma
 
-$(PROG): $(OBJS)
-	$(AR) rc $(PROG) $(OBJS)
+#---------------------------------------------------------------------------------
+# list of directories containing libraries, this must be the top level containing
+# include and lib
+#---------------------------------------------------------------------------------
+LIBDIRS	:=
 
-$(BDIR)/7zAlloc.o: 7zAlloc.c
-	$(CXX) $(CFLAGS) 7zAlloc.c -o $@
+#---------------------------------------------------------------------------------
+# no real need to edit anything past this point unless you need to add additional
+# rules for different file extensions
+#---------------------------------------------------------------------------------
+ifneq ($(BUILD),$(notdir $(CURDIR)))
+#---------------------------------------------------------------------------------
 
-$(BDIR)/7zBuffer.o: 7zBuffer.c
-	$(CXX) $(CFLAGS) 7zBuffer.c -o $@
+export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
-$(BDIR)/7zCrc.o: 7zCrc.c
-	$(CXX) $(CFLAGS) 7zCrc.c -o $@
+export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
+					$(foreach dir,$(DATA),$(CURDIR)/$(dir))
 
-$(BDIR)/7zDecode.o: 7zDecode.c
-	$(CXX) $(CFLAGS) 7zDecode.c -o $@
+export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
-$(BDIR)/7zExtract.o: 7zExtract.c
-	$(CXX) $(CFLAGS) 7zExtract.c -o $@
+#---------------------------------------------------------------------------------
+# automatically build a list of object files for our project
+#---------------------------------------------------------------------------------
+CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
+SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
+BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 
-$(BDIR)/7zHeader.o: 7zHeader.c
-	$(CXX) $(CFLAGS) 7zHeader.c -o $@
+#---------------------------------------------------------------------------------
+# use CXX for linking C++ projects, CC for standard C
+#---------------------------------------------------------------------------------
+ifeq ($(strip $(CPPFILES)),)
+	export LD	:=	$(CC)
+else
+	export LD	:=	$(CXX)
+endif
 
-$(BDIR)/7zIn.o: 7zIn.c
-	$(CXX) $(CFLAGS) 7zIn.c -o $@
+export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
+					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) \
+					$(sFILES:.s=.o) $(SFILES:.S=.o)
 
-$(BDIR)/7zItem.o: 7zItem.c
-	$(CXX) $(CFLAGS) 7zItem.c -o $@
+#---------------------------------------------------------------------------------
+# build a list of include paths
+#---------------------------------------------------------------------------------
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
+					-I$(CURDIR)/$(BUILD) \
+					-I$(LIBOGC_INC)
 
-$(BDIR)/7zMethodID.o: 7zMethodID.c
-	$(CXX) $(CFLAGS) 7zMethodID.c -o $@
+#---------------------------------------------------------------------------------
+# build a list of library paths
+#---------------------------------------------------------------------------------
+export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
+					-L$(LIBOGC_LIB)
 
-$(BDIR)/LzmaDecode.o: LzmaDecode.c
-	$(CXX) $(CFLAGS) LzmaDecode.c -o $@
+export OUTPUT	:=	$(CURDIR)/$(TARGET)
+.PHONY: $(BUILD) clean
 
+#---------------------------------------------------------------------------------
+$(BUILD):
+	@[ -d $@ ] || mkdir -p $@
+	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
+#---------------------------------------------------------------------------------
 clean:
-	-$(RM) $(PROG) $(OBJS)
+	@echo clean ...
+	@rm -fr $(BUILD) $(OUTPUT).elf $(OUTPUT).dol
+
+
+#---------------------------------------------------------------------------------
+else
+
+DEPENDS	:=	$(OFILES:.o=.d)
+
+#---------------------------------------------------------------------------------
+# main targets
+#---------------------------------------------------------------------------------
+$(OUTPUT).dol: $(OUTPUT).elf
+$(OUTPUT).elf: $(OFILES)
+
+
+-include $(DEPENDS)
+
+#---------------------------------------------------------------------------------
+endif
+#---------------------------------------------------------------------------------
 

@@ -1,2 +1,2 @@
 cd pcutils/
-lzmaadd ../emuloader_cube.dol ../emupack.7z ../emupack.dol
+lzmaadd ../emuloader.dol ../emupack.7z ../emupack.dol
